@@ -1,0 +1,34 @@
+{
+  "query": "健身房 跑步机",
+  "total_downloaded": 4,
+  "items": [
+    {
+      "url": "https://cos.solepic.com/20171211/b_201712111707588686.jpg",
+      "title": "bing_0",
+      "source": "bing_images",
+      "license": "unknown",
+      "local_path": "test_downloads\\健身房_跑步机\\img_001.jpg"
+    },
+    {
+      "url": "https://gbres.dfcfw.com/Files/iimage/20240328/108643735536B7303A5ABCEE0D036644_w1912h1275.jpg",
+      "title": "bing_1",
+      "source": "bing_images",
+      "license": "unknown",
+      "local_path": "test_downloads\\健身房_跑步机\\img_002.jpg"
+    },
+    {
+      "url": "https://cos3.solepic.com/20220430/b_4097383202204301042222113.jpg",
+      "title": "bing_2",
+      "source": "bing_images",
+      "license": "unknown",
+      "local_path": "test_downloads\\健身房_跑步机\\img_003.jpg"
+    },
+    {
+      "url": "https://imgservice.suning.cn/uimg1/b2c/image/If1IMCeZYxNH3zoIDTc0pQ.jpg_800w_800h_4e",
+      "title": "bing_4",
+      "source": "bing_images",
+      "license": "unknown",
+      "local_path": "test_downloads\\健身房_跑步机\\img_005.jpg"
+    }
+  ]
+}
