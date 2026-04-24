@@ -1,196 +1,114 @@
-# Image Agent
+# 🖼️ Image Agent
 
-AI-powered image search, download, and content-based renaming for AI agents.
+> Search web images → Download with cross-session dedup → Auto-rename by vision AI
 
-**Given a search query → search the web for images → download with deduplication → use vision AI to analyze each image → rename files by content.**
+![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
 
----
+**Problem this solves:** Search engines keep returning the same popular images.
+This tool gets genuinely diverse images AND never re-downloads visually similar ones.
 
 ## Features
 
-- **Multi-source search**: Bing Images (works in China), Sogou, Unsplash, Pexels, Google Images (SerpAPI), Flickr CC
-- **Query expansion**: Automatically generates 3-5 query variations (synonyms, related terms) to broaden coverage
-- **Perceptual hash deduplication**: Uses `imagehash` to detect near-duplicate images (same photo, different format/domain)
-- **Vision-based auto-rename**: Analyzes image content via AI and renames files by what they actually contain
-- **Zero-config start**: Works without API keys (Bing and Sogou are free)
-- **Cross-platform**: Windows (PowerShell), Linux, macOS
+- 🌐 **Multi-source search**: Bing + Baidu + Sogou + Reddit + Tumblr + Pixiv + Unsplash + Pexels + Flickr CC
+- 🗑️ **Cross-session perceptual dedup**: Persistent hash DB tracks ALL downloaded images across searches
+- 🏷️ **Domain diversity**: Max 3 images per domain — ensures genuinely different sources
+- 🤖 **Vision AI rename**: Auto-rename files by analyzing their visual content
+- 🔄 **Query permutation**: Not just synonyms — generates genuinely different queries
 
----
+## Installation
+
+```bash
+pip install requests imagehash Pillow
+```
+
+Optional API keys (for higher quality image sources):
+```bash
+export UNSPLASH_ACCESS_KEY="your_key"       # unsplash.com/developers
+export PEXELS_API_KEY="your_key"           # pexels.com/api
+export SERPAPI_KEY="your_key"              # serpapi.com (100/month free)
+```
 
 ## Quick Start
 
-### 1. Install dependencies
+### Search + Download
 
 ```bash
-pip install -r requirements.txt
+# Basic usage (20 images)
+python scripts/search_images_v3.py "golden retriever" --max 20 -o ./downloads
+
+# Maximum diversity: scan existing folders first (recommended!)
+python scripts/search_images_v3.py "健身房器材" --max 30 -o ./downloads --scan-existing
+
+# Single query, no expansion
+python scripts/search_images_v3.py "city night" --max 20 --no-expand -o ./downloads
 ```
 
-### 2. Search and download images
+### Auto-rename by Vision
 
+**Recommended**: Ask the AI agent to rename — it has a built-in vision tool (Claude Sonnet, free).
+
+Or via script:
 ```bash
-python scripts/search_images_v2.py "golden retriever" --max 20 -o ./downloads
+# Preview
+python scripts/auto_rename.py ./downloads/golden_retriever --dry-run
+
+# Auto-rename (needs vision-capable API key)
+python scripts/auto_rename.py ./downloads/golden_retriever --delay 1.0
 ```
 
-This will:
-- Expand your query into 3-5 variations for broader coverage
-- Search multiple sources (Bing, Sogou, Unsplash, Pexels, etc.)
-- Download images with perceptual hash deduplication
-- Save a `manifest.json` with all downloaded image info
+> ⚠️ **Note**: aicodee.com's MiniMax models do NOT support image input. For vision rename,
+> use the agent's built-in `image` tool or an OpenRouter key with Claude/GPT-4V.
 
-### 3. Rename by vision
+## v3 vs v2 — What's Fixed
 
-**Option A — Fully automated (requires vision API key):**
+| Problem | v2 | v3 |
+|---------|----|----|
+| Same images on every search | Bing returns same popular images | Multi-source + Baidu + Reddit |
+| Re-downloads similar images | Only within-batch dedup | Persistent hash DB, cross-session |
+| Bing pagination stuck | Same results | Randomized offsets + time filters |
+| Query expansion too narrow | Just synonyms | Semantic query permutation |
+| Limited sources | Bing + Sogou | 10 sources: Bing + Baidu + Sogou + Reddit + Tumblr + Pixiv + APIs |
 
-```bash
-python scripts/auto_rename.py ./downloads/golden_retriever
-```
-
-Set API key for vision:
-```bash
-# Windows
-$env:OPENROUTER_API_KEY = "your-key-here"
-# Then run the command above
-```
-
-**Option B — Agent-assisted (no extra setup):**
-
-Give the downloaded folder to an AI agent with the `image-agent` skill. The agent will use its vision model to analyze each image and rename files automatically.
-
-```powershell
-# Agent does this automatically:
-# 1. Read manifest.json
-# 2. For each image, use vision model to analyze content
-# 3. Rename: img_001.jpg → golden_retriever_dog_beach.jpg
-```
-
----
-
-## Workflow
+## Architecture
 
 ```
-User query (e.g. "gym treadmill")
+search_images_v3.py (main script)
     │
-    v
-search_images_v2.py
-    │  1. Query expansion → 3-5 variations
-    │  2. Multi-source search (Bing, Sogou, Unsplash, Pexels, ...)
-    │  3. Perceptual hash dedup (same image, different URL → filtered)
-    │  4. Download with size filter (Large/Wallpaper)
+    ├── PersistentHashDB       ← ~/.cache/image-agent/hashdb.json
+    ├── DomainDiversityFilter  ← max 3 per domain
+    ├── Bing + Baidu + Sogou   ← Chinese search engines
+    ├── Reddit + Tumblr + Pixiv← User-generated content (very different!)
+    └── API sources           ← Unsplash + Pexels + SerpAPI + Flickr CC
     │
-    v
-./downloads/{query_slug}/
-    ├── img_001.jpg
-    ├── img_002.jpg
-    ├── ...
-    └── manifest.json
-    │
-    v
-auto_rename.py (or AI agent with image tool)
-    │  Vision AI analyzes each image
-    │  Generates descriptive filename
-    │
-    v
-Files renamed by content:
-  img_001.jpg → treadmill_running_machine.jpg
-  img_002.jpg → gym_fitness_weights.jpg
+    ▼
+auto_rename.py (OR: use agent's `image` tool)
+    └── Vision AI → rename by content
 ```
 
----
+## How the "Same Images" Problem is Solved
 
-## Configuration
+**Layer 1 — Persistent Hash DB**: Every downloaded image is hashed (pHash) and stored.
+The next time you search anything, visually similar images are skipped.
 
-### Optional: Set API Keys for High-Quality Sources
+**Layer 2 — Domain Diversity**: Bing might return 20 images from the same 3 sites.
+v3 limits to 3 per domain.
 
-```bash
-# Unsplash (free, 50 req/hr) — https://unsplash.com/developers
-$env:UNSPLASH_ACCESS_KEY = "your_key"
+**Layer 3 — Baidu + Reddit**: These sources return completely different photos than Bing.
+Reddit especially — real user photos from real gyms, cars, dogs, etc.
 
-# Pexels (free, 200 req/month) — https://www.pexels.com/api/
-$env:PEXELS_API_KEY = "your_key"
+**Layer 4 — Query Permutation**: Instead of just synonyms, generates queries like
+"gym close up", "gym real photo", "gym stock photo" — each returning different images.
 
-# SerpAPI (free tier: 100 searches/month) — https://serpapi.com
-$env:SERPAPI_KEY = "your_key"
-```
+## API Keys (Optional)
 
-### Vision API Key (for auto_rename.py)
-
-```bash
-# OpenRouter-compatible API key (for vision model)
-$env:OPENROUTER_API_KEY = "your-key"
-# Supports: Claude, GPT-4V, Gemini Vision, etc.
-```
-
----
-
-## CLI Reference
-
-### search_images_v2.py
-
-| Argument | Description |
-|----------|-------------|
-| `query` | Search query (required) |
-| `--max N` | Max images to download (default: 20) |
-| `-o, --output DIR` | Output directory (default: ./downloads) |
-| `--size S` | Bing size filter: Small/Medium/Large/Wallpaper (default: Large) |
-| `--no-expand` | Disable query expansion |
-
-### auto_rename.py
-
-| Argument | Description |
-|----------|-------------|
-| `folder` | Folder containing images (required) |
-| `--dry-run` | Preview without renaming |
-| `--delay N` | Delay between API calls in seconds (default: 0.5) |
-| `--api-key KEY` | Override API key |
-
----
-
-## Image Sources
-
-| Source | Key needed | Quality | Notes |
-|--------|------------|---------|-------|
-| Bing Images | No | Medium-High | Primary source, works in China |
-| Sogou Images | No | Medium | China alternative |
-| Google Images (SerpAPI) | Yes (free tier) | High | 100 searches/month |
-| Unsplash API | Yes (free) | High | 50 requests/hour |
-| Pexels API | Yes (free) | High | 200 requests/month |
-| Flickr CC | No | Medium | Creative Commons only |
-
----
-
-## File Structure
-
-```
-image-agent/
-├── SKILL.md                      <- AI agent skill metadata
-├── README.md                     <- This file
-├── requirements.txt              <- Python dependencies
-└── scripts/
-    ├── search_images_v2.py       <- Enhanced search + download
-    ├── auto_rename.py            <- Fully automated vision rename
-    └── rename_by_vision.py      <- Manifest generator (agent-assisted)
-```
-
----
-
-## Troubleshooting
-
-### "No images found" or too few results
-- Try `--no-expand` if query expansion is returning unrelated images
-- Try a more specific query
-- Check if Bing is accessible in your region
-
-### "Same images downloaded repeatedly"
-- This is fixed in v2 via perceptual hash deduplication
-- Use `search_images_v2.py` (not the old `search_images.py`)
-- Try `--size Wallpaper` for more variety
-
-### Vision API not working in auto_rename.py
-- Set `$env:OPENROUTER_API_KEY` to a valid key
-- Or use the AI agent with the `image-agent` skill (built-in vision, no extra key needed)
-
----
+| Service | Free Tier | Sign Up |
+|---------|-----------|---------|
+| Unsplash | 50 req/hour | unsplash.com/developers |
+| Pexels | 200 req/month | pexels.com/api |
+| SerpAPI | 100 searches/month | serpapi.com |
+| Flickr | No key needed | — |
 
 ## License
 
-MIT
+MIT — free to use, modify, distribute.
